@@ -9,7 +9,8 @@ import pandas as pd
 import psycopg2
 from dataclasses import dataclass
 from contextlib import contextmanager
-from typing import Dict, Any
+from typing import Dict, Any, Optional
+from datetime import datetime, timedelta
 from dotenv import load_dotenv
 
 # Load environment variables from .env file (local dev only)
@@ -66,9 +67,8 @@ class Config:
         if not self.db_url and self.environment != "development":
             logger.warning("No database URL found in environment variables")
 
-        # Query dates
-        self.start_date = os.getenv("START_DATE", "2025-05-20 18:30:00")
-        self.end_date = os.getenv("END_DATE", "2025-05-22 18:29:59")
+        # Query dates - default to last 2 days if not specified
+        self._setup_default_dates()
 
         # Database connection settings
         self.db_connection_timeout = int(os.getenv("DB_CONNECTION_TIMEOUT", "30"))
@@ -79,6 +79,88 @@ class Config:
         self.output = OutputConfig(output_dir=os.getenv("OUTPUT_DIR", "./output"))
 
         logger.debug("Configuration initialized with database and output settings")
+
+    def _setup_default_dates(self):
+        """Set up default date range (last 2 days)."""
+        end_date = datetime.now()
+        start_date = end_date - timedelta(days=2)
+
+        self.start_date = os.getenv(
+            "START_DATE", start_date.strftime("%Y-%m-%d %H:%M:%S")
+        )
+        self.end_date = os.getenv("END_DATE", end_date.strftime("%Y-%m-%d %H:%M:%S"))
+
+        # Parse string dates to datetime objects for validation
+        try:
+            self._start_datetime = datetime.strptime(
+                self.start_date, "%Y-%m-%d %H:%M:%S"
+            )
+            self._end_datetime = datetime.strptime(self.end_date, "%Y-%m-%d %H:%M:%S")
+        except ValueError:
+            logger.warning(
+                "Invalid date format. Using default date range (last 2 days)."
+            )
+            self._start_datetime = start_date
+            self._end_datetime = end_date
+            self.start_date = start_date.strftime("%Y-%m-%d %H:%M:%S")
+            self.end_date = end_date.strftime("%Y-%m-%d %H:%M:%S")
+
+    def set_date_range(
+        self, from_date: Optional[str] = None, to_date: Optional[str] = None
+    ):
+        """
+        Set custom date range for the analysis.
+
+        Args:
+            from_date: Start date in format 'YYYY-MM-DD'
+            to_date: End date in format 'YYYY-MM-DD'
+
+        Raises:
+            ValueError: If date format is invalid or if from_date is after to_date
+        """
+        if from_date and to_date:
+            try:
+                # Parse dates and set time to start/end of day
+                start_datetime = datetime.strptime(from_date, "%Y-%m-%d")
+                start_datetime = start_datetime.replace(hour=0, minute=0, second=0)
+
+                end_datetime = datetime.strptime(to_date, "%Y-%m-%d")
+                end_datetime = end_datetime.replace(hour=23, minute=59, second=59)
+
+                # Validate date range
+                if start_datetime > end_datetime:
+                    raise ValueError("Start date cannot be after end date")
+
+                # Set date range
+                self._start_datetime = start_datetime
+                self._end_datetime = end_datetime
+                self.start_date = start_datetime.strftime("%Y-%m-%d %H:%M:%S")
+                self.end_date = end_datetime.strftime("%Y-%m-%d %H:%M:%S")
+
+                logger.info(
+                    f"Custom date range set: {self.start_date} to {self.end_date}"
+                )
+            except ValueError as e:
+                logger.error(f"Invalid date format: {e}")
+                raise ValueError(f"Invalid date format: {e}")
+        elif from_date or to_date:
+            # If only one date is provided, use default for the other
+            self.set_date_range(
+                from_date=from_date
+                or (datetime.now() - timedelta(days=2)).strftime("%Y-%m-%d"),
+                to_date=to_date or datetime.now().strftime("%Y-%m-%d"),
+            )
+
+    def get_date_range_description(self) -> str:
+        """
+        Get a formatted description of the date range.
+
+        Returns:
+            String description like 'from_20250520_to_20250522'
+        """
+        start_str = self._start_datetime.strftime("%Y%m%d")
+        end_str = self._end_datetime.strftime("%Y%m%d")
+        return f"from_{start_str}_to_{end_str}"
 
     def validate(self) -> bool:
         """Validate that all required configurations are present."""
@@ -202,19 +284,17 @@ class Config:
 
     def get_config_summary(self) -> Dict[str, Any]:
         """
-        Get a summary of the current configuration.
-        Sensitive information is masked.
+        Get summary of configuration for logging or debugging.
 
         Returns:
-            Dictionary with configuration summary
+            Dict with configuration summary
         """
         return {
             "environment": self.environment,
-            "db_url_configured": bool(self.db_url),
             "start_date": self.start_date,
             "end_date": self.end_date,
             "output_dir": self.output.output_dir,
-            "db_connection_timeout": self.db_connection_timeout,
-            "db_query_timeout": self.db_query_timeout,
-            "db_max_retries": self.db_max_retries,
+            "connection_timeout": self.db_connection_timeout,
+            "query_timeout": self.db_query_timeout,
+            "max_retries": self.db_max_retries,
         }

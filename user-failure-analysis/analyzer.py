@@ -39,16 +39,25 @@ class AnalysisError(Exception):
 class FailureAnalyzer:
     """Analyzes user failure rates and generates visualizations."""
 
-    def __init__(self, data: pd.DataFrame, output_dir: str = "./output"):
+    def __init__(
+        self,
+        data: pd.DataFrame,
+        output_dir: str = "./output",
+        date_range_desc: Optional[str] = None,
+    ):
         """
         Initialize analyzer with query results.
 
         Args:
             data: DataFrame containing session_id, name, and exotel_call_sid columns
             output_dir: Directory to save output files
+            date_range_desc: Description of date range for file naming
         """
         self.data = data.copy()
         self.output_dir = output_dir
+        self.date_range_desc = (
+            date_range_desc or f"date_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        )
         self._validate_data()
         self._processed_stats = None
 
@@ -215,9 +224,7 @@ class FailureAnalyzer:
             Path to the exported CSV file
         """
         if not filepath:
-            csv_filename = (
-                f"user_failure_stats_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
-            )
+            csv_filename = f"user_failure_stats_{self.date_range_desc}.csv"
             filepath = os.path.join(self.output_dir, csv_filename)
 
         df = self.to_dataframe()
@@ -287,7 +294,9 @@ class FailureAnalyzer:
 
             # Calculate percentages
             total_users = len(df_all)
-            bin_percentages = (bin_counts / total_users * 100).map(lambda x: round(x, 1) if not pd.isna(x) else 0.0)
+            bin_percentages = (bin_counts / total_users * 100).map(
+                lambda x: round(x, 1) if not pd.isna(x) else 0.0
+            )
 
             # Create a dictionary mapping bins to lists of users
             users_by_bin = {}
@@ -396,19 +405,49 @@ class FailureAnalyzer:
                 xaxis_title="Failure Rate Brackets",
                 yaxis_title="Number of Users",
                 hovermode="closest",
+                template="plotly_white",
+                # Modern styling with green/teal color theme
+                colorway=["#059669", "#10b981", "#34d399", "#6ee7b7", "#a7f3d0"],
+                font=dict(family="Inter, Arial, sans-serif", size=12, color="#1e293b"),
+                plot_bgcolor="#ffffff",
+                paper_bgcolor="#ffffff",
+                margin=dict(l=40, r=40, t=80, b=40),
+            )
+
+            # Add custom styling to match the reference design
+            fig.update_xaxes(
+                showgrid=True,
+                gridcolor="#e2e8f0",
+                title_font=dict(size=13, color="#0f172a"),
+            )
+
+            fig.update_yaxes(
+                showgrid=True,
+                gridcolor="#e2e8f0",
+                title_font=dict(size=13, color="#0f172a"),
             )
 
             # Create filename and save
-            html_filename = (
-                f"user_failure_rates_{datetime.now().strftime('%Y%m%d_%H%M%S')}.html"
-            )
+            html_filename = f"user_failure_rates_{self.date_range_desc}.html"
             filepath = os.path.join(self.output_dir, html_filename)
 
+            # Save HTML file with plotly CDN for better load performance
             fig.write_html(
                 filepath,
                 include_plotlyjs="cdn",
                 full_html=True,
-                config={"displayModeBar": True, "displaylogo": False},
+                config={
+                    "displayModeBar": True,
+                    "displaylogo": False,
+                    "responsive": True,
+                    "toImageButtonOptions": {
+                        "format": "png",
+                        "filename": f"user_failure_rates_{self.date_range_desc}",
+                        "height": 600,
+                        "width": 1200,
+                        "scale": 2,
+                    },
+                },
             )
 
             logger.info(
@@ -423,7 +462,9 @@ class FailureAnalyzer:
 
 
 def analyze_failure_data(
-    data: pd.DataFrame, output_dir: str = "./output"
+    data: pd.DataFrame,
+    output_dir: str = "./output",
+    date_range_desc: Optional[str] = None,
 ) -> FailureAnalyzer:
     """
     Factory function to create and return a FailureAnalyzer instance.
@@ -431,8 +472,9 @@ def analyze_failure_data(
     Args:
         data: DataFrame containing call log data
         output_dir: Directory to save output files
+        date_range_desc: Description of date range for file naming
 
     Returns:
         FailureAnalyzer instance
     """
-    return FailureAnalyzer(data, output_dir)
+    return FailureAnalyzer(data, output_dir, date_range_desc)

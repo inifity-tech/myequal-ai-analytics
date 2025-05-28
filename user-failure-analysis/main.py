@@ -7,6 +7,7 @@ Orchestrates database querying, data analysis, and visualization generation.
 import sys
 import logging
 import traceback
+import argparse
 from datetime import datetime
 
 from config import Config, DatabaseError
@@ -24,8 +25,18 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def run_analysis():
-    """Run analysis using database query."""
+def run_analysis(from_date=None, to_date=None, max_users=15):
+    """
+    Run analysis using database query.
+
+    Args:
+        from_date: Start date in format 'YYYY-MM-DD'
+        to_date: End date in format 'YYYY-MM-DD'
+        max_users: Maximum number of users to display in the visualization
+
+    Returns:
+        Exit code (0 for success, 1 for failure)
+    """
     logger.info("Starting user failure rate analysis with database query...")
 
     start_time = datetime.now()
@@ -33,8 +44,24 @@ def run_analysis():
     try:
         # Initialize configuration
         config = Config()
+
+        # Set custom date range if provided
+        if from_date or to_date:
+            try:
+                config.set_date_range(from_date=from_date, to_date=to_date)
+                logger.info(
+                    f"Using custom date range: {config.start_date} to {config.end_date}"
+                )
+            except ValueError as e:
+                logger.error(f"Invalid date range: {e}")
+                print(f"\n❌ Invalid date range: {e}")
+                return 1
+
         if not config.validate():
             raise ValueError("Configuration validation failed")
+
+        # Get date range description for file naming
+        date_range_desc = config.get_date_range_description()
 
         # Test database connection
         logger.info("Testing database connection...")
@@ -54,7 +81,7 @@ def run_analysis():
 
         # Analyze the data
         logger.info("Analyzing failure rate data...")
-        analyzer = analyze_failure_data(data, config.output.output_dir)
+        analyzer = analyze_failure_data(data, config.output.output_dir, date_range_desc)
         user_stats = analyzer.calculate_failure_rates()
         summary_stats = analyzer.get_summary_statistics()
 
@@ -64,7 +91,7 @@ def run_analysis():
 
         # Create visualization
         logger.info("Generating interactive failure rate histogram...")
-        plot_filepath = analyzer.create_interactive_bar_plot()
+        plot_filepath = analyzer.create_interactive_bar_plot(top_n=max_users)
 
         # Print summary to console
         print_summary(user_stats, summary_stats)
@@ -132,7 +159,22 @@ def print_summary(user_stats, summary_stats):
 def main():
     """Main entry point for the script."""
     try:
-        return run_analysis()
+        # Parse command line arguments
+        parser = argparse.ArgumentParser(description="User failure rate analysis")
+        parser.add_argument("--from-date", help="Start date (YYYY-MM-DD)")
+        parser.add_argument("--to-date", help="End date (YYYY-MM-DD)")
+        parser.add_argument(
+            "--max-users",
+            type=int,
+            default=15,
+            help="Maximum number of users to display",
+        )
+
+        args = parser.parse_args()
+
+        return run_analysis(
+            from_date=args.from_date, to_date=args.to_date, max_users=args.max_users
+        )
     except KeyboardInterrupt:
         logger.info("Analysis interrupted by user")
         print("\n🛑 Analysis interrupted by user")

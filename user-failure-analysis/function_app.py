@@ -150,10 +150,16 @@ def _parse_request(req: func.HttpRequest) -> dict:
             "export_csv": req.params.get("export_csv", "true").lower() == "true",
             "include_details": req.params.get("include_details", "false").lower()
             == "true",
-            "date_range_days": int(req.params.get("date_range_days", "2")),
             "max_users": int(req.params.get("max_users", "15")),
         }
     )
+
+    # Handle date parameters - both specific dates and date range
+    if req.params.get("from_date") or req.params.get("to_date"):
+        request_data["from_date"] = req.params.get("from_date")
+        request_data["to_date"] = req.params.get("to_date")
+    elif req.params.get("date_range_days"):
+        request_data["date_range_days"] = int(req.params.get("date_range_days", "2"))
 
     logger.info(f"Parsed request data: {request_data}")
     return request_data
@@ -170,8 +176,42 @@ def _validate_request(request_data: dict) -> dict:
         Dictionary with validation result
     """
     try:
-        # Validate date range
-        if "date_range_days" in request_data:
+        # Validate date range or specific dates
+        if "from_date" in request_data or "to_date" in request_data:
+            # Validate date format if provided
+            date_format = "%Y-%m-%d"
+
+            if "from_date" in request_data and request_data["from_date"]:
+                try:
+                    datetime.strptime(request_data["from_date"], date_format)
+                except ValueError:
+                    return {
+                        "valid": False,
+                        "error": "from_date must be in YYYY-MM-DD format",
+                    }
+
+            if "to_date" in request_data and request_data["to_date"]:
+                try:
+                    datetime.strptime(request_data["to_date"], date_format)
+                except ValueError:
+                    return {
+                        "valid": False,
+                        "error": "to_date must be in YYYY-MM-DD format",
+                    }
+
+            # If both dates are provided, validate to_date is not before from_date
+            if (
+                request_data.get("from_date")
+                and request_data.get("to_date")
+                and datetime.strptime(request_data["from_date"], date_format)
+                > datetime.strptime(request_data["to_date"], date_format)
+            ):
+                return {
+                    "valid": False,
+                    "error": "from_date cannot be after to_date",
+                }
+
+        elif "date_range_days" in request_data:
             days = request_data["date_range_days"]
             if days <= 0 or days > 30:
                 return {
@@ -221,8 +261,22 @@ def _run_database_analysis(
         if datetime.now() >= timeout:
             raise TimeoutError("Function timed out before processing could begin")
 
-        # Apply custom date range if specified
-        if "date_range_days" in request_data:
+        # Apply date range parameters - prioritize from_date/to_date over date_range_days
+        date_range_desc = None
+
+        if "from_date" in request_data or "to_date" in request_data:
+            # Use specific dates if provided
+            from_date = request_data.get("from_date")
+            to_date = request_data.get("to_date")
+
+            config.set_date_range(from_date=from_date, to_date=to_date)
+            date_range_desc = config.get_date_range_description()
+
+            logger.info(
+                f"Using custom date range: {config.start_date} to {config.end_date}"
+            )
+        elif "date_range_days" in request_data:
+            # Otherwise use date_range_days if provided
             days = request_data["date_range_days"]
             end_date = datetime.now()
             start_date = end_date - timedelta(days=days)
@@ -230,8 +284,11 @@ def _run_database_analysis(
             config.end_date = end_date.strftime("%Y-%m-%d %H:%M:%S")
             config.start_date = start_date.strftime("%Y-%m-%d %H:%M:%S")
 
+            # Create description for filenames
+            date_range_desc = f"last_{days}days"
+
             logger.info(
-                f"Using custom date range: {config.start_date} to {config.end_date}"
+                f"Using date range of last {days} days: {config.start_date} to {config.end_date}"
             )
 
         # Test database connection
@@ -253,9 +310,8 @@ def _run_database_analysis(
         if datetime.now() >= timeout:
             raise TimeoutError("Function timed out after retrieving data")
 
-        # Analyze the data
-        analyzer = analyze_failure_data(data, config.output.output_dir)
-        user_stats = analyzer.calculate_failure_rates()
+        # Analyze the data with date range description for filenames
+        analyzer = analyze_failure_data(data, config.output.output_dir, date_range_desc)
         summary_stats = analyzer.get_summary_statistics()
 
         results["data_summary"] = summary_stats
