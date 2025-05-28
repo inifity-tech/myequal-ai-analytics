@@ -1,0 +1,6 @@
+psycopg2-binary>=2.9.9
+pandas>=2.0.0
+numpy>=1.24.0
+plotly>=5.13.0
+python-dotenv>=1.0.0
+azure-functions>=1.15.0 
