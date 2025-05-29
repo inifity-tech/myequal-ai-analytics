@@ -291,10 +291,6 @@ def create_visualization(df: pd.DataFrame, output_dir: str, date_range: str) -> 
         </div>
     </div>
     
-    <div class="chart-container">
-        <div id="chart"></div>
-    </div>
-    
     <script>
         var plotData = {fig.to_json()};
         Plotly.newPlot('chart', plotData.data, plotData.layout, {{
