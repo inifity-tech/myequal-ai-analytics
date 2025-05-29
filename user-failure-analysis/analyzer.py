@@ -1,480 +1,198 @@
 """
-Analyzer module for calculating user failure rates and generating visualizations.
-Combines data analysis and visualization capabilities in a single module.
+User failure analysis visualization module.
+Creates interactive bar chart of user failure rates matching the required style.
 """
 
-import logging
-import os
 import pandas as pd
-import numpy as np
 import plotly.graph_objects as go
-from plotly.subplots import make_subplots
-from dataclasses import dataclass
-from typing import List, Dict, Optional
-from datetime import datetime
+import plotly.colors as colors
+import os
+import logging
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-@dataclass
-class UserFailureStats:
-    """Data class to hold user failure statistics."""
-
-    name: str
-    total_sessions: int
-    failed_sessions: int
-    failure_rate: float
-    success_sessions: int
-    success_rate: float
-
-
-class AnalysisError(Exception):
-    """Custom exception for analysis-related errors."""
-
-    pass
-
-
-class FailureAnalyzer:
-    """Analyzes user failure rates and generates visualizations."""
-
-    def __init__(
-        self,
-        data: pd.DataFrame,
-        output_dir: str = "./output",
-        date_range_desc: Optional[str] = None,
-    ):
-        """
-        Initialize analyzer with query results.
-
-        Args:
-            data: DataFrame containing session_id, name, and exotel_call_sid columns
-            output_dir: Directory to save output files
-            date_range_desc: Description of date range for file naming
-        """
-        self.data = data.copy()
-        self.output_dir = output_dir
-        self.date_range_desc = (
-            date_range_desc or f"date_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-        )
-        self._validate_data()
-        self._processed_stats = None
-
-        # Create output directory if it doesn't exist
-        os.makedirs(self.output_dir, exist_ok=True)
-
-    def _validate_data(self) -> None:
-        """Validate that required columns exist in the data."""
-        required_columns = ["session_id", "name", "exotel_call_sid"]
-        missing_columns = [
-            col for col in required_columns if col not in self.data.columns
-        ]
-
-        if missing_columns:
-            raise ValueError(f"Missing required columns: {missing_columns}")
-
-        logger.info(f"Data validation passed. Total records: {len(self.data)}")
-
-    def calculate_failure_rates(self) -> List[UserFailureStats]:
-        """
-        Calculate failure rates for each user.
-
-        A failure is defined as having a session_id but NULL exotel_call_sid.
-
-        Returns:
-            List of UserFailureStats objects
-        """
-        logger.info("Calculating failure rates by user...")
-
-        # Clean user names (remove trailing spaces)
-        self.data["name"] = self.data["name"].str.strip()
-
-        # Group by user name and calculate statistics
-        user_stats = []
-
-        for user_name, user_data in self.data.groupby("name"):
-            total_sessions = len(user_data)
-
-            # Failed sessions are those with NULL exotel_call_sid
-            failed_sessions = user_data["exotel_call_sid"].isnull().sum()
-            success_sessions = total_sessions - failed_sessions
-
-            failure_rate = (
-                failed_sessions / total_sessions if total_sessions > 0 else 0.0
-            )
-            success_rate = (
-                success_sessions / total_sessions if total_sessions > 0 else 0.0
-            )
-
-            stats = UserFailureStats(
-                name=user_name,
-                total_sessions=total_sessions,
-                failed_sessions=failed_sessions,
-                failure_rate=failure_rate,
-                success_sessions=success_sessions,
-                success_rate=success_rate,
-            )
-
-            user_stats.append(stats)
-
-            logger.debug(
-                f"User: {user_name}, Total: {total_sessions}, "
-                f"Failed: {failed_sessions}, Rate: {failure_rate:.2%}"
-            )
-
-        # Sort by failure rate (descending) then by total sessions (descending)
-        user_stats.sort(key=lambda x: (-x.failure_rate, -x.total_sessions))
-
-        self._processed_stats = user_stats
-        logger.info(f"Calculated failure rates for {len(user_stats)} users")
-
-        return user_stats
-
-    def get_summary_statistics(self) -> Dict[str, float]:
-        """
-        Get overall summary statistics.
-
-        Returns:
-            Dictionary containing summary statistics
-        """
-        if self._processed_stats is None:
-            self.calculate_failure_rates()
-
-        total_sessions = sum(stat.total_sessions for stat in self._processed_stats)
-        total_failures = sum(stat.failed_sessions for stat in self._processed_stats)
-
-        overall_failure_rate = (
-            total_failures / total_sessions if total_sessions > 0 else 0.0
-        )
-
-        failure_rates = [stat.failure_rate for stat in self._processed_stats]
-
-        summary = {
-            "total_users": len(self._processed_stats),
-            "total_sessions": total_sessions,
-            "total_failures": total_failures,
-            "overall_failure_rate": overall_failure_rate,
-            "avg_user_failure_rate": np.mean(failure_rates),
-            "median_user_failure_rate": np.median(failure_rates)
-            if failure_rates
-            else 0.0,
-            "max_user_failure_rate": np.max(failure_rates) if failure_rates else 0.0,
-            "min_user_failure_rate": np.min(failure_rates) if failure_rates else 0.0,
-            "std_user_failure_rate": np.std(failure_rates) if failure_rates else 0.0,
-        }
-
-        logger.info(
-            f"Summary - Total Users: {summary['total_users']}, "
-            f"Overall Failure Rate: {summary['overall_failure_rate']:.2%}"
-        )
-
-        return summary
-
-    def get_top_failing_users(self, top_n: int = 10) -> List[UserFailureStats]:
-        """
-        Get top N users with highest failure rates.
-
-        Args:
-            top_n: Number of top users to return
-
-        Returns:
-            List of UserFailureStats for top failing users
-        """
-        if self._processed_stats is None:
-            self.calculate_failure_rates()
-
-        return self._processed_stats[:top_n]
-
-    def to_dataframe(self) -> pd.DataFrame:
-        """
-        Convert processed statistics to DataFrame.
-
-        Returns:
-            DataFrame with user statistics
-        """
-        if self._processed_stats is None:
-            self.calculate_failure_rates()
-
-        data = []
-        for stat in self._processed_stats:
-            data.append(
-                {
-                    "user_name": stat.name,
-                    "total_sessions": stat.total_sessions,
-                    "failed_sessions": stat.failed_sessions,
-                    "success_sessions": stat.success_sessions,
-                    "failure_rate": stat.failure_rate,
-                    "success_rate": stat.success_rate,
-                    "failure_rate_percent": f"{stat.failure_rate:.2%}",
-                    "success_rate_percent": f"{stat.success_rate:.2%}",
-                }
-            )
-
-        return pd.DataFrame(data)
-
-    def export_to_csv(self, filepath: Optional[str] = None) -> str:
-        """
-        Export processed statistics to CSV file.
-
-        Args:
-            filepath: Optional path to save the CSV file. If not provided, a default path is used.
-
-        Returns:
-            Path to the exported CSV file
-        """
-        if not filepath:
-            csv_filename = f"user_failure_stats_{self.date_range_desc}.csv"
-            filepath = os.path.join(self.output_dir, csv_filename)
-
-        df = self.to_dataframe()
-        df.to_csv(filepath, index=False)
-        logger.info(f"Exported user statistics to {filepath}")
-        return filepath
-
-    def create_interactive_bar_plot(self, top_n: int = 15) -> str:
-        """
-        Create an interactive histogram showing the distribution of failure rates.
-
-        Args:
-            top_n: Number of top users to include in the table (doesn't affect histogram)
-
-        Returns:
-            Path to the saved HTML file
-        """
-        try:
-            logger.info("Generating interactive failure rate distribution histogram")
-
-            # Ensure we have processed data
-            if self._processed_stats is None:
-                self.calculate_failure_rates()
-
-            # Create dataframe with all user stats
-            df_all = pd.DataFrame(
-                [
-                    {
-                        "User": stat.name,
-                        "Failure Rate": stat.failure_rate * 100,
-                        "Failed Sessions": stat.failed_sessions,
-                        "Total Sessions": stat.total_sessions,
-                    }
-                    for stat in self._processed_stats
-                ]
-            )
-
-            # Get top N users for the table
-            top_users = self._processed_stats[:top_n]
-            df_top = pd.DataFrame(
-                [
-                    {
-                        "User": stat.name,
-                        "Failure Rate": stat.failure_rate * 100,
-                        "Failed Sessions": stat.failed_sessions,
-                        "Total Sessions": stat.total_sessions,
-                    }
-                    for stat in top_users
-                ]
-            )
-
-            # Create bins for histogram (0-10%, 10-20%, etc.)
-            bins = list(range(0, 101, 10))
-            bin_labels = [f"{i}-{i + 10}%" for i in range(0, 100, 10)]
-
-            # Assign each user to a bin
-            df_all["Bin"] = pd.cut(
-                df_all["Failure Rate"],
-                bins=bins,
-                labels=bin_labels,
-                include_lowest=True,
-                right=False,
-            )
-
-            # Count users in each bin
-            bin_counts = df_all["Bin"].value_counts().sort_index()
-
-            # Calculate percentages
-            total_users = len(df_all)
-            bin_percentages = (bin_counts / total_users * 100).map(
-                lambda x: round(x, 1) if not pd.isna(x) else 0.0
-            )
-
-            # Create a dictionary mapping bins to lists of users
-            users_by_bin = {}
-            for bin_label in bin_labels:
-                bin_users = df_all[df_all["Bin"] == bin_label]
-                users_by_bin[bin_label] = bin_users.sort_values(
-                    "Failure Rate", ascending=False
-                )
-
-            # Prepare hover text with user lists for each bin
-            hover_texts = []
-            for bin_label in bin_labels:
-                if bin_label in bin_counts.index:
-                    bin_users = users_by_bin[bin_label]
-                    user_count = len(bin_users)
-                    percentage = round((user_count / total_users * 100), 1)
-
-                    hover_text = f"<b>{bin_label}</b><br>"
-                    hover_text += f"Users: {user_count} ({percentage}%)<br><br>"
-
-                    user_list = "<br>".join(
-                        [
-                            f"{row['User']}: {row['Failure Rate']:.1f}% ({row['Failed Sessions']}/{row['Total Sessions']})"
-                            for _, row in bin_users.head(
-                                10
-                            ).iterrows()  # Show top 10 users per bin
-                        ]
-                    )
-
-                    if len(bin_users) > 10:
-                        user_list += f"<br>...and {len(bin_users) - 10} more users"
-
-                    hover_text += user_list
-                    hover_texts.append(hover_text)
-                else:
-                    hover_texts.append(f"<b>{bin_label}</b><br>No users in this range")
-
-            # Create figure with subplots
-            fig = make_subplots(
-                rows=1,
-                cols=2,
-                specs=[[{"type": "bar"}, {"type": "table"}]],
-                column_widths=[0.7, 0.3],
-                subplot_titles=("User Failure Rate Distribution", "Top Failing Users"),
-            )
-
-            # Prepare text annotations showing both count and percentage
-            text_annotations = []
-            for i, (count, percent) in enumerate(zip(bin_counts, bin_percentages)):
-                if not pd.isna(count):
-                    text_annotations.append(f"{int(count)} ({percent}%)")
-                else:
-                    text_annotations.append("0 (0.0%)")
-
-            # Add histogram - show counts and percentages
-            fig.add_trace(
-                go.Bar(
-                    x=bin_labels,
-                    y=bin_counts.values,
-                    text=text_annotations,  # Show both count and percentage
-                    textposition="auto",
-                    hoverinfo="text",
-                    hovertext=hover_texts,
-                    marker=dict(
-                        color=bins[:-1],
-                        colorscale="Greens",
-                        colorbar=dict(title="Failure Rate (%)"),
-                    ),
-                ),
-                row=1,
-                col=1,
-            )
-
-            # Add table with top failing users
-            fig.add_trace(
-                go.Table(
-                    header=dict(
-                        values=["User", "Failure Rate", "Failed", "Total"],
-                        fill_color="paleturquoise",
-                        align="left",
-                        font=dict(size=12),
-                    ),
-                    cells=dict(
-                        values=[
-                            df_top["User"],
-                            df_top["Failure Rate"].apply(lambda x: f"{x:.1f}%"),
-                            df_top["Failed Sessions"],
-                            df_top["Total Sessions"],
-                        ],
-                        fill_color="lavender",
-                        align="left",
-                        font=dict(size=11),
-                    ),
-                ),
-                row=1,
-                col=2,
-            )
-
-            # Update layout
-            summary_stats = self.get_summary_statistics()
-
-            fig.update_layout(
-                title_text=f"User Failure Rate Analysis<br><sup>Overall Failure Rate: {summary_stats['overall_failure_rate']:.2%} | Total Users: {summary_stats['total_users']} | Total Sessions: {summary_stats['total_sessions']}</sup>",
-                height=600,
-                showlegend=False,
-                xaxis_title="Failure Rate Brackets",
-                yaxis_title="Number of Users",
-                hovermode="closest",
-                template="plotly_white",
-                # Modern styling with green/teal color theme
-                colorway=["#059669", "#10b981", "#34d399", "#6ee7b7", "#a7f3d0"],
-                font=dict(family="Inter, Arial, sans-serif", size=12, color="#1e293b"),
-                plot_bgcolor="#ffffff",
-                paper_bgcolor="#ffffff",
-                margin=dict(l=40, r=40, t=80, b=40),
-            )
-
-            # Add custom styling to match the reference design
-            fig.update_xaxes(
-                showgrid=True,
-                gridcolor="#e2e8f0",
-                title_font=dict(size=13, color="#0f172a"),
-            )
-
-            fig.update_yaxes(
-                showgrid=True,
-                gridcolor="#e2e8f0",
-                title_font=dict(size=13, color="#0f172a"),
-            )
-
-            # Create filename and save
-            html_filename = f"user_failure_rates_{self.date_range_desc}.html"
-            filepath = os.path.join(self.output_dir, html_filename)
-
-            # Save HTML file with plotly CDN for better load performance
-            fig.write_html(
-                filepath,
-                include_plotlyjs="cdn",
-                full_html=True,
-                config={
-                    "displayModeBar": True,
-                    "displaylogo": False,
-                    "responsive": True,
-                    "toImageButtonOptions": {
-                        "format": "png",
-                        "filename": f"user_failure_rates_{self.date_range_desc}",
-                        "height": 600,
-                        "width": 1200,
-                        "scale": 2,
-                    },
-                },
-            )
-
-            logger.info(
-                f"Interactive failure rate distribution plot saved to {filepath}"
-            )
-            return filepath
-
-        except Exception as e:
-            error_msg = f"Failed to create interactive bar plot: {e}"
-            logger.error(error_msg)
-            raise AnalysisError(error_msg)
-
-
-def analyze_failure_data(
-    data: pd.DataFrame,
-    output_dir: str = "./output",
-    date_range_desc: Optional[str] = None,
-) -> FailureAnalyzer:
+def create_failure_rate_bins(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Factory function to create and return a FailureAnalyzer instance.
+    Create failure rate distribution bins.
 
     Args:
-        data: DataFrame containing call log data
-        output_dir: Directory to save output files
-        date_range_desc: Description of date range for file naming
+        df: DataFrame with user failure statistics
 
     Returns:
-        FailureAnalyzer instance
+        DataFrame with failure rate distribution
     """
-    return FailureAnalyzer(data, output_dir, date_range_desc)
+    # Create bins from 0 to 100 with 10% intervals
+    bins = list(range(0, 101, 10))
+    labels = [f"{bins[i]}-{bins[i + 1]}%" for i in range(len(bins) - 1)]
+
+    # Add a bin column
+    df_bins = pd.DataFrame({"failure_rate": df["failure_rate"]})
+    df_bins["bin"] = pd.cut(
+        df_bins["failure_rate"], bins=bins, labels=labels, include_lowest=True
+    )
+
+    # Count users in each bin
+    distribution = df_bins["bin"].value_counts().reset_index()
+    distribution.columns = ["range", "count"]
+    distribution = distribution.sort_values("range")
+
+    return distribution
+
+
+def create_visualization(df: pd.DataFrame, output_dir: str, date_range: str) -> None:
+    """
+    Create an interactive visualization of user failure rates distribution.
+    Shows the distribution chart with hover details but without the table.
+
+    Args:
+        df: DataFrame with user failure statistics
+        output_dir: Directory to save the visualization
+        date_range: String representing the date range of the analysis
+    """
+    try:
+        # Calculate summary statistics
+        total_users = len(df)
+        total_sessions = df["total_sessions"].sum()
+        total_failures = df["failed_sessions"].sum()
+        overall_failure_rate = (
+            (total_failures / total_sessions * 100) if total_sessions > 0 else 0
+        )
+
+        # Create failure rate distribution
+        distribution = create_failure_rate_bins(df)
+
+        # Calculate percentages
+        distribution["percentage"] = (distribution["count"] / total_users * 100).round(
+            2
+        )
+
+        # Add user details to each range for hover information
+        distribution["user_details"] = ""
+        for i, row in distribution.iterrows():
+            range_min = float(row["range"].split("-")[0].rstrip("%"))
+            range_max = float(row["range"].split("-")[1].rstrip("%"))
+
+            # Get users in this range
+            users_in_range = df[df["failure_rate"].between(range_min, range_max)]
+
+            # Format user details
+            if not users_in_range.empty:
+                user_list = []
+                for _, user_row in users_in_range.iterrows():
+                    user_list.append(
+                        f"• {user_row['user']} ({user_row['failure_rate']:.1f}%)"
+                    )
+                distribution.at[i, "user_details"] = "<br>".join(user_list)
+
+        # Create the figure with subplots
+        fig = go.Figure()
+
+        # Create a colorscale for the bars
+        colorscale = colors.sequential.Greens[1:]  # Skip the first (almost white) color
+        max_color_idx = len(colorscale) - 1
+
+        # Add distribution bars with color gradient based on failure rate
+        for i, row in distribution.iterrows():
+            # Extract the range values for color mapping
+            range_start = float(row["range"].split("-")[0].rstrip("%"))
+            # Scale the range (0-100) to the available colors
+            color_idx = min(int((range_start / 100) * max_color_idx), max_color_idx)
+
+            fig.add_trace(
+                go.Bar(
+                    x=[row["range"]],
+                    y=[row["count"]],
+                    name=row["range"],
+                    text=[f"{row['count']} ({row['percentage']}%)"],
+                    textposition="auto",
+                    marker_color=colorscale[color_idx],
+                    hovertemplate=(
+                        "<b>%{x}</b><br>"
+                        + "<b>Users in this range:</b> %{y}<br>"
+                        + "<b>Percentage:</b> %{text}<br>"
+                        + "<b>Users in this category:</b><br>"
+                        + row["user_details"]
+                        + "<extra></extra>"
+                    ),
+                    showlegend=False,
+                )
+            )
+
+        # Update layout
+        fig.update_layout(
+            title={
+                "text": f"User Failure Rate Analysis<br><sup>Overall Failure Rate: {overall_failure_rate:.2f}% | Total Users: {total_users} | Total Sessions: {total_sessions}</sup>",
+                "y": 0.95,
+                "x": 0.5,
+                "xanchor": "center",
+                "yanchor": "top",
+            },
+            yaxis_title="Number of Users",
+            xaxis_title="Failure Rate Brackets",
+            height=600,
+            margin=dict(t=100, l=50, r=50, b=50),
+            template="plotly_white",
+            plot_bgcolor="white",
+            yaxis=dict(
+                gridcolor="lightgray",
+                tickformat=".0f",  # Display whole numbers
+                dtick=0.5,  # Increment by 0.5
+            ),
+            xaxis=dict(
+                gridcolor="lightgray",
+                tickangle=0,
+                categoryorder="array",
+                categoryarray=[f"{i}-{i + 10}%" for i in range(0, 100, 10)],
+            ),
+            hoverlabel=dict(bgcolor="white", font_size=14, font_family="Arial"),
+        )
+
+        # Add color scale reference on the right side
+        fig.update_layout(
+            coloraxis_colorbar=dict(
+                title="Failure Rate (%)",
+                thicknessmode="pixels",
+                thickness=20,
+                lenmode="pixels",
+                len=300,
+                yanchor="top",
+                y=1,
+                xanchor="right",
+                x=1.1,
+                ticks="outside",
+            ),
+            coloraxis=dict(colorscale=colorscale),
+        )
+
+        # Add summary metrics at the bottom
+        fig.add_annotation(
+            xref="paper",
+            yref="paper",
+            x=0.5,
+            y=-0.15,
+            text=f"<b>Total Users: {total_users}</b>",
+            showarrow=False,
+            font=dict(size=14),
+            align="center",
+        )
+
+        # Save the visualization
+        output_file = os.path.join(output_dir, f"user_failure_rates_{date_range}.html")
+        fig.write_html(
+            output_file,
+            include_plotlyjs="cdn",
+            full_html=True,
+            config={"displayModeBar": True, "displaylogo": False, "responsive": True},
+        )
+
+        # Save the raw data
+        csv_file = os.path.join(output_dir, f"user_failure_stats_{date_range}.csv")
+        df.to_csv(csv_file, index=False)
+
+        logger.info(f"Visualization saved to {output_file}")
+        logger.info(f"Raw data saved to {csv_file}")
+
+    except Exception as e:
+        logger.error(f"Error creating visualization: {str(e)}", exc_info=True)
+        raise
