@@ -1,28 +1,25 @@
-FROM ghcr.io/astral-sh/uv:python3.12-alpine
+FROM python:3.9-slim
+
+# Set working directory
 WORKDIR /app
 
-# Install system dependencies
-RUN apk add --no-cache gcc musl-dev postgresql-dev
-
-# Copy requirements file
+# Copy requirements first to leverage Docker cache
 COPY requirements.txt .
-
-# Install Python dependencies
-RUN uv pip install --system -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
-COPY *.py .
-COPY env_template.txt .env
-
-# Create output directory
-RUN mkdir -p ./output
+COPY . .
 
 # Set environment variables
-ENV PYTHONPATH=/app
+ENV PORT=8000
+ENV LOG_LEVEL=info
 ENV OUTPUT_DIR=/app/output
 
-# Expose the port for Azure Functions (if needed)
-EXPOSE 80
+# Create output directory
+RUN mkdir -p /app/output
 
-# Run the application
-CMD ["python", "main.py"] 
+# Expose port
+EXPOSE 8000
+
+# Run the FastAPI server
+CMD ["uvicorn", "server:app", "--host", "0.0.0.0", "--port", "8000"] 

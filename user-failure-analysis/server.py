@@ -53,45 +53,20 @@ def is_cache_valid(file_path: str) -> bool:
 
 def get_report_paths(from_date: str, to_date: str) -> tuple:
     """Get paths for HTML and CSV report files."""
-    # Get the analysis output directory
-    analysis_output_dir = os.getenv("OUTPUT_DIR", "./output")
+    # Use a standard output directory
+    output_dir = os.getenv("OUTPUT_DIR", "./output")
 
-    # Get the dashboard's public/reports directory
-    dashboard_dir = os.path.join(
-        os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
-        "Internal-Dashboard",
-        "public",
-        "reports",
-    )
+    # Ensure the output directory exists
+    os.makedirs(output_dir, exist_ok=True)
 
-    # Create both directories if they don't exist
-    os.makedirs(analysis_output_dir, exist_ok=True)
-    os.makedirs(dashboard_dir, exist_ok=True)
-
+    # Generate file names based on date range
     date_range = f"from_{from_date.replace('-', '')}_to_{to_date.replace('-', '')}"
 
-    # Analysis paths
-    analysis_html_path = os.path.join(
-        analysis_output_dir, f"user_failure_rates_{date_range}.html"
-    )
-    analysis_csv_path = os.path.join(
-        analysis_output_dir, f"user_failure_stats_{date_range}.csv"
-    )
+    # Generate file paths
+    html_path = os.path.join(output_dir, f"user_failure_rates_{date_range}.html")
+    csv_path = os.path.join(output_dir, f"user_failure_stats_{date_range}.csv")
 
-    # Dashboard paths
-    dashboard_html_path = os.path.join(
-        dashboard_dir, f"user_failure_rates_{date_range}.html"
-    )
-    dashboard_csv_path = os.path.join(
-        dashboard_dir, f"user_failure_stats_{date_range}.csv"
-    )
-
-    return (
-        analysis_html_path,
-        analysis_csv_path,
-        dashboard_html_path,
-        dashboard_csv_path,
-    )
+    return (html_path, csv_path, html_path, csv_path)
 
 
 @app.get("/health")
@@ -118,22 +93,17 @@ async def analyze_data(request: AnalysisRequest):
 
         # Get report file paths
         (
-            analysis_html_path,
-            analysis_csv_path,
-            dashboard_html_path,
-            dashboard_csv_path,
+            html_path,
+            csv_path,
+            output_html_path,
+            output_csv_path,
         ) = get_report_paths(request.from_date, request.to_date)
 
         # Check if we need to regenerate the reports
         force_refresh = (
             request.force_refresh or os.getenv("FORCE_REFRESH", "").lower() == "true"
         )
-        cache_valid = (
-            is_cache_valid(analysis_html_path)
-            and is_cache_valid(analysis_csv_path)
-            and is_cache_valid(dashboard_html_path)
-            and is_cache_valid(dashboard_csv_path)
-        )
+        cache_valid = is_cache_valid(html_path) and is_cache_valid(csv_path)
 
         if not force_refresh and cache_valid:
             logger.info("Using cached reports")
@@ -143,14 +113,11 @@ async def analyze_data(request: AnalysisRequest):
                 "data": {
                     "from_date": request.from_date,
                     "to_date": request.to_date,
-                    "html_path": dashboard_html_path,
-                    "csv_path": dashboard_csv_path,
+                    "html_path": html_path,
+                    "csv_path": csv_path,
                     "cached": True,
                 },
             }
-
-        # Set output directory for analysis
-        os.environ["OUTPUT_DIR"] = os.path.dirname(analysis_html_path)
 
         # Run analysis
         logger.info("Generating new reports...")
@@ -158,6 +125,7 @@ async def analyze_data(request: AnalysisRequest):
             from_date=request.from_date,
             to_date=request.to_date,
             max_users=request.max_users,
+            output_dir=os.path.dirname(html_path),
         )
 
         if not result.get("success", False):
@@ -166,28 +134,14 @@ async def analyze_data(request: AnalysisRequest):
                 detail=f"Analysis failed: {result.get('error', 'Unknown error')}",
             )
 
-        # Copy files to dashboard directory
-        try:
-            import shutil
-
-            shutil.copy2(analysis_html_path, dashboard_html_path)
-            shutil.copy2(analysis_csv_path, dashboard_csv_path)
-            logger.info("Copied report files to dashboard directory")
-        except Exception as e:
-            logger.error(f"Error copying files to dashboard: {str(e)}")
-            raise HTTPException(
-                status_code=500,
-                detail="Failed to copy report files to dashboard",
-            )
-
         return {
             "success": True,
             "message": "Analysis completed successfully",
             "data": {
                 "from_date": request.from_date,
                 "to_date": request.to_date,
-                "html_path": dashboard_html_path,
-                "csv_path": dashboard_csv_path,
+                "html_path": result["data"]["html_url"],
+                "csv_path": result["data"]["csv_url"],
                 "cached": False,
                 "analysis_result": result.get("data", {}),
             },
@@ -199,8 +153,5 @@ async def analyze_data(request: AnalysisRequest):
 
 
 if __name__ == "__main__":
-    port = int(os.getenv("PORT", "8000"))
-    log_level = os.getenv("LOG_LEVEL", "info").lower()
-
-    logger.info(f"Starting server on http://localhost:{port}")
-    uvicorn.run(app, host="0.0.0.0", port=port, log_level=log_level)
+    logger.info("Starting server on http://localhost:8000")
+    uvicorn.run(app, host="0.0.0.0", port=8000)
