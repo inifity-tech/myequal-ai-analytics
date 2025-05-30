@@ -93,10 +93,10 @@ def user_failure_analysis(req: func.HttpRequest) -> func.HttpResponse:
     """
     try:
         # Validate dates
-        logger.info(req.get_body())
+        print("Received request:", req.get_body())
         try:
-            from_date = datetime.strptime(req.params.from_date, "%Y-%m-%d")
-            to_date = datetime.strptime(req.params.to_date, "%Y-%m-%d")
+            from_date = datetime.strptime(req.from_date, "%Y-%m-%d")
+            to_date = datetime.strptime(req.to_date, "%Y-%m-%d")
             if from_date > to_date:
                 raise ValueError("Start date cannot be after end date")
         except ValueError as e:
@@ -108,11 +108,11 @@ def user_failure_analysis(req: func.HttpRequest) -> func.HttpResponse:
             csv_path,
             output_html_path,
             output_csv_path,
-        ) = get_report_paths(req.params.from_date, req.params.to_date)
+        ) = get_report_paths(req.from_date, req.to_date)
 
         # Check if we need to regenerate the reports
         force_refresh = (
-            req.params.force_refresh or os.getenv("FORCE_REFRESH", "").lower() == "true"
+            req.force_refresh or os.getenv("FORCE_REFRESH", "").lower() == "true"
         )
         cache_valid = is_cache_valid(html_path) and is_cache_valid(csv_path)
 
@@ -122,8 +122,8 @@ def user_failure_analysis(req: func.HttpRequest) -> func.HttpResponse:
                 "success": True,
                 "message": "Using cached reports",
                 "data": {
-                    "from_date": req.params.from_date,
-                    "to_date": req.params.to_date,
+                    "from_date": req.from_date,
+                    "to_date": req.to_date,
                     "html_path": html_path,
                     "csv_path": csv_path,
                     "cached": True,
@@ -133,9 +133,9 @@ def user_failure_analysis(req: func.HttpRequest) -> func.HttpResponse:
         # Run analysis
         logger.info("Generating new reports...")
         result = run_analysis(
-            from_date=req.params.from_date,
-            to_date=req.params.to_date,
-            max_users=req.params.max_users,
+            from_date=req.from_date,
+            to_date=req.to_date,
+            max_users=req.max_users,
             output_dir=os.path.dirname(html_path),
         )
 
@@ -149,8 +149,8 @@ def user_failure_analysis(req: func.HttpRequest) -> func.HttpResponse:
             "success": True,
             "message": "Analysis completed successfully",
             "data": {
-                "from_date": req.params.from_date,
-                "to_date": req.params.to_date,
+                "from_date": req.from_date,
+                "to_date": req.to_date,
                 "html_path": result["data"]["html_url"],
                 "csv_path": result["data"]["csv_url"],
                 "cached": False,
