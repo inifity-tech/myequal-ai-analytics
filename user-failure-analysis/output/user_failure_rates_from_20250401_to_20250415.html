@@ -1,0 +1,102 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>User Failure Rate Analysis</title>
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .header {
+            margin-bottom: 20px;
+        }
+        .header h1 {
+            margin-bottom: 5px;
+            color: #333;
+        }
+        .date-range {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 15px;
+        }
+        .chart-container {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        .summary-header {
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 10px;
+            text-align: left;
+            padding-left: 20px;
+        }
+        .stats-container {
+            display: flex;
+            justify-content: space-around;
+            width: 100%;
+            margin-top: 20px;
+        }
+        .stat-card {
+            background-color: white;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            min-width: 200px;
+        }
+        .stat-value {
+            font-size: 32px;
+            font-weight: bold;
+            color: #006D2C;
+            margin: 10px 0;
+        }
+        .stat-label {
+            font-size: 16px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>User Failure Rate Analysis</h1>
+        <div class="date-range">Date Range: 20250401/ to 20250415</div>
+    </div>
+    
+    <div class="stats-container">
+        <div class="stat-card">
+            <div class="stat-value">859</div>
+            <div class="stat-label">Total Sessions</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">457</div>
+            <div class="stat-label">Failed Sessions</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">53.20%</div>
+            <div class="stat-label">Overall Failure Rate</div>
+        </div>
+    </div>
+    
+    <div class="chart-container">
+        <div id="chart"></div>
+    </div>
+    
+    <script>
+        var plotData = {"data":[{"customdata":[["No users in this category"]],"hovertemplate":"\u003cb\u003e%{x}\u003c\u002fb\u003e\u003cbr\u003e\u003cb\u003eUsers in this range:\u003c\u002fb\u003e %{y}\u003cbr\u003e\u003cb\u003ePercentage:\u003c\u002fb\u003e %{text}\u003cbr\u003e\u003cb\u003eUsers in this category:\u003c\u002fb\u003e\u003cbr\u003e%{customdata[0]}\u003cextra\u003e\u003c\u002fextra\u003e","marker":{"color":"rgb(247, 252, 245)"},"name":"0-10%","showlegend":false,"text":["0 (0.0%)"],"textposition":"auto","x":["0-10%"],"y":[0.0],"type":"bar"},{"customdata":[["No users in this category"]],"hovertemplate":"\u003cb\u003e%{x}\u003c\u002fb\u003e\u003cbr\u003e\u003cb\u003eUsers in this range:\u003c\u002fb\u003e %{y}\u003cbr\u003e\u003cb\u003ePercentage:\u003c\u002fb\u003e %{text}\u003cbr\u003e\u003cb\u003eUsers in this category:\u003c\u002fb\u003e\u003cbr\u003e%{customdata[0]}\u003cextra\u003e\u003c\u002fextra\u003e","marker":{"color":"rgb(229, 245, 224)"},"name":"10-20%","showlegend":false,"text":["0 (0.0%)"],"textposition":"auto","x":["10-20%"],"y":[0.0],"type":"bar"},{"customdata":[["\u2022 Vishnu Vardhan Reddy (27.8%)\u003cbr\u003e\u2022 Keshav (25.0%)"]],"hovertemplate":"\u003cb\u003e%{x}\u003c\u002fb\u003e\u003cbr\u003e\u003cb\u003eUsers in this range:\u003c\u002fb\u003e %{y}\u003cbr\u003e\u003cb\u003ePercentage:\u003c\u002fb\u003e %{text}\u003cbr\u003e\u003cb\u003eUsers in this category:\u003c\u002fb\u003e\u003cbr\u003e%{customdata[0]}\u003cextra\u003e\u003c\u002fextra\u003e","marker":{"color":"rgb(199, 233, 192)"},"name":"20-30%","showlegend":false,"text":["2 (16.7%)"],"textposition":"auto","x":["20-30%"],"y":[2.0],"type":"bar"},{"customdata":[["\u2022 Raghav (36.6%)"]],"hovertemplate":"\u003cb\u003e%{x}\u003c\u002fb\u003e\u003cbr\u003e\u003cb\u003eUsers in this range:\u003c\u002fb\u003e %{y}\u003cbr\u003e\u003cb\u003ePercentage:\u003c\u002fb\u003e %{text}\u003cbr\u003e\u003cb\u003eUsers in this category:\u003c\u002fb\u003e\u003cbr\u003e%{customdata[0]}\u003cextra\u003e\u003c\u002fextra\u003e","marker":{"color":"rgb(161, 217, 155)"},"name":"30-40%","showlegend":false,"text":["1 (8.3%)"],"textposition":"auto","x":["30-40%"],"y":[1.0],"type":"bar"},{"customdata":[["\u2022 Kalyan Ryali (50.0%)\u003cbr\u003e\u2022 Akhilesh (44.7%)\u003cbr\u003e\u2022 Ayush  (42.1%)"]],"hovertemplate":"\u003cb\u003e%{x}\u003c\u002fb\u003e\u003cbr\u003e\u003cb\u003eUsers in this range:\u003c\u002fb\u003e %{y}\u003cbr\u003e\u003cb\u003ePercentage:\u003c\u002fb\u003e %{text}\u003cbr\u003e\u003cb\u003eUsers in this category:\u003c\u002fb\u003e\u003cbr\u003e%{customdata[0]}\u003cextra\u003e\u003c\u002fextra\u003e","marker":{"color":"rgb(116, 196, 118)"},"name":"40-50%","showlegend":false,"text":["3 (25.0%)"],"textposition":"auto","x":["40-50%"],"y":[3.0],"type":"bar"},{"customdata":[["\u2022 Atharva Raykar (60.0%)"]],"hovertemplate":"\u003cb\u003e%{x}\u003c\u002fb\u003e\u003cbr\u003e\u003cb\u003eUsers in this range:\u003c\u002fb\u003e %{y}\u003cbr\u003e\u003cb\u003ePercentage:\u003c\u002fb\u003e %{text}\u003cbr\u003e\u003cb\u003eUsers in this category:\u003c\u002fb\u003e\u003cbr\u003e%{customdata[0]}\u003cextra\u003e\u003c\u002fextra\u003e","marker":{"color":"rgb(65, 171, 93)"},"name":"50-60%","showlegend":false,"text":["1 (8.3%)"],"textposition":"auto","x":["50-60%"],"y":[1.0],"type":"bar"},{"customdata":[["No users in this category"]],"hovertemplate":"\u003cb\u003e%{x}\u003c\u002fb\u003e\u003cbr\u003e\u003cb\u003eUsers in this range:\u003c\u002fb\u003e %{y}\u003cbr\u003e\u003cb\u003ePercentage:\u003c\u002fb\u003e %{text}\u003cbr\u003e\u003cb\u003eUsers in this category:\u003c\u002fb\u003e\u003cbr\u003e%{customdata[0]}\u003cextra\u003e\u003c\u002fextra\u003e","marker":{"color":"rgb(35, 139, 69)"},"name":"60-70%","showlegend":false,"text":["0 (0.0%)"],"textposition":"auto","x":["60-70%"],"y":[0.0],"type":"bar"},{"customdata":[["\u2022 Adit Lal (78.6%)"]],"hovertemplate":"\u003cb\u003e%{x}\u003c\u002fb\u003e\u003cbr\u003e\u003cb\u003eUsers in this range:\u003c\u002fb\u003e %{y}\u003cbr\u003e\u003cb\u003ePercentage:\u003c\u002fb\u003e %{text}\u003cbr\u003e\u003cb\u003eUsers in this category:\u003c\u002fb\u003e\u003cbr\u003e%{customdata[0]}\u003cextra\u003e\u003c\u002fextra\u003e","marker":{"color":"rgb(0, 109, 44)"},"name":"70-80%","showlegend":false,"text":["1 (8.3%)"],"textposition":"auto","x":["70-80%"],"y":[1.0],"type":"bar"},{"customdata":[["\u2022 Sanjay Gohil (80.6%)"]],"hovertemplate":"\u003cb\u003e%{x}\u003c\u002fb\u003e\u003cbr\u003e\u003cb\u003eUsers in this range:\u003c\u002fb\u003e %{y}\u003cbr\u003e\u003cb\u003ePercentage:\u003c\u002fb\u003e %{text}\u003cbr\u003e\u003cb\u003eUsers in this category:\u003c\u002fb\u003e\u003cbr\u003e%{customdata[0]}\u003cextra\u003e\u003c\u002fextra\u003e","marker":{"color":"rgb(0, 90, 50)"},"name":"80-90%","showlegend":false,"text":["1 (8.3%)"],"textposition":"auto","x":["80-90%"],"y":[1.0],"type":"bar"},{"customdata":[["\u2022 Ayush Priyam (100.0%)\u003cbr\u003e\u2022 Govind (100.0%)\u003cbr\u003e\u2022 Prakash  (90.3%)"]],"hovertemplate":"\u003cb\u003e%{x}\u003c\u002fb\u003e\u003cbr\u003e\u003cb\u003eUsers in this range:\u003c\u002fb\u003e %{y}\u003cbr\u003e\u003cb\u003ePercentage:\u003c\u002fb\u003e %{text}\u003cbr\u003e\u003cb\u003eUsers in this category:\u003c\u002fb\u003e\u003cbr\u003e%{customdata[0]}\u003cextra\u003e\u003c\u002fextra\u003e","marker":{"color":"rgb(0, 79, 38)"},"name":"90-100%","showlegend":false,"text":["3 (25.0%)"],"textposition":"auto","x":["90-100%"],"y":[3.0],"type":"bar"}],"layout":{"template":{"data":{"barpolar":[{"marker":{"line":{"color":"white","width":0.5},"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"barpolar"}],"bar":[{"error_x":{"color":"#2a3f5f"},"error_y":{"color":"#2a3f5f"},"marker":{"line":{"color":"white","width":0.5},"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"bar"}],"carpet":[{"aaxis":{"endlinecolor":"#2a3f5f","gridcolor":"#C8D4E3","linecolor":"#C8D4E3","minorgridcolor":"#C8D4E3","startlinecolor":"#2a3f5f"},"baxis":{"endlinecolor":"#2a3f5f","gridcolor":"#C8D4E3","linecolor":"#C8D4E3","minorgridcolor":"#C8D4E3","startlinecolor":"#2a3f5f"},"type":"carpet"}],"choropleth":[{"colorbar":{"outlinewidth":0,"ticks":""},"type":"choropleth"}],"contourcarpet":[{"colorbar":{"outlinewidth":0,"ticks":""},"type":"contourcarpet"}],"contour":[{"colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]],"type":"contour"}],"heatmapgl":[{"colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]],"type":"heatmapgl"}],"heatmap":[{"colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]],"type":"heatmap"}],"histogram2dcontour":[{"colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]],"type":"histogram2dcontour"}],"histogram2d":[{"colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]],"type":"histogram2d"}],"histogram":[{"marker":{"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"histogram"}],"mesh3d":[{"colorbar":{"outlinewidth":0,"ticks":""},"type":"mesh3d"}],"parcoords":[{"line":{"colorbar":{"outlinewidth":0,"ticks":""}},"type":"parcoords"}],"pie":[{"automargin":true,"type":"pie"}],"scatter3d":[{"line":{"colorbar":{"outlinewidth":0,"ticks":""}},"marker":{"colorbar":{"outlinewidth":0,"ticks":""}},"type":"scatter3d"}],"scattercarpet":[{"marker":{"colorbar":{"outlinewidth":0,"ticks":""}},"type":"scattercarpet"}],"scattergeo":[{"marker":{"colorbar":{"outlinewidth":0,"ticks":""}},"type":"scattergeo"}],"scattergl":[{"marker":{"colorbar":{"outlinewidth":0,"ticks":""}},"type":"scattergl"}],"scattermapbox":[{"marker":{"colorbar":{"outlinewidth":0,"ticks":""}},"type":"scattermapbox"}],"scatterpolargl":[{"marker":{"colorbar":{"outlinewidth":0,"ticks":""}},"type":"scatterpolargl"}],"scatterpolar":[{"marker":{"colorbar":{"outlinewidth":0,"ticks":""}},"type":"scatterpolar"}],"scatter":[{"fillpattern":{"fillmode":"overlay","size":10,"solidity":0.2},"type":"scatter"}],"scatterternary":[{"marker":{"colorbar":{"outlinewidth":0,"ticks":""}},"type":"scatterternary"}],"surface":[{"colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]],"type":"surface"}],"table":[{"cells":{"fill":{"color":"#EBF0F8"},"line":{"color":"white"}},"header":{"fill":{"color":"#C8D4E3"},"line":{"color":"white"}},"type":"table"}]},"layout":{"annotationdefaults":{"arrowcolor":"#2a3f5f","arrowhead":0,"arrowwidth":1},"autotypenumbers":"strict","coloraxis":{"colorbar":{"outlinewidth":0,"ticks":""}},"colorscale":{"diverging":[[0,"#8e0152"],[0.1,"#c51b7d"],[0.2,"#de77ae"],[0.3,"#f1b6da"],[0.4,"#fde0ef"],[0.5,"#f7f7f7"],[0.6,"#e6f5d0"],[0.7,"#b8e186"],[0.8,"#7fbc41"],[0.9,"#4d9221"],[1,"#276419"]],"sequential":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]],"sequentialminus":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]},"colorway":["#636efa","#EF553B","#00cc96","#ab63fa","#FFA15A","#19d3f3","#FF6692","#B6E880","#FF97FF","#FECB52"],"font":{"color":"#2a3f5f"},"geo":{"bgcolor":"white","lakecolor":"white","landcolor":"white","showlakes":true,"showland":true,"subunitcolor":"#C8D4E3"},"hoverlabel":{"align":"left"},"hovermode":"closest","mapbox":{"style":"light"},"paper_bgcolor":"white","plot_bgcolor":"white","polar":{"angularaxis":{"gridcolor":"#EBF0F8","linecolor":"#EBF0F8","ticks":""},"bgcolor":"white","radialaxis":{"gridcolor":"#EBF0F8","linecolor":"#EBF0F8","ticks":""}},"scene":{"xaxis":{"backgroundcolor":"white","gridcolor":"#DFE8F3","gridwidth":2,"linecolor":"#EBF0F8","showbackground":true,"ticks":"","zerolinecolor":"#EBF0F8"},"yaxis":{"backgroundcolor":"white","gridcolor":"#DFE8F3","gridwidth":2,"linecolor":"#EBF0F8","showbackground":true,"ticks":"","zerolinecolor":"#EBF0F8"},"zaxis":{"backgroundcolor":"white","gridcolor":"#DFE8F3","gridwidth":2,"linecolor":"#EBF0F8","showbackground":true,"ticks":"","zerolinecolor":"#EBF0F8"}},"shapedefaults":{"line":{"color":"#2a3f5f"}},"ternary":{"aaxis":{"gridcolor":"#DFE8F3","linecolor":"#A2B1C6","ticks":""},"baxis":{"gridcolor":"#DFE8F3","linecolor":"#A2B1C6","ticks":""},"bgcolor":"white","caxis":{"gridcolor":"#DFE8F3","linecolor":"#A2B1C6","ticks":""}},"title":{"x":0.05},"xaxis":{"automargin":true,"gridcolor":"#EBF0F8","linecolor":"#EBF0F8","ticks":"","title":{"standoff":15},"zerolinecolor":"#EBF0F8","zerolinewidth":2},"yaxis":{"automargin":true,"gridcolor":"#EBF0F8","linecolor":"#EBF0F8","ticks":"","title":{"standoff":15},"zerolinecolor":"#EBF0F8","zerolinewidth":2}}},"title":{"font":{"size":20},"text":"User Failure Rate Distribution","y":0.99,"x":0.5,"xanchor":"center","yanchor":"top"},"margin":{"t":50,"l":50,"r":50,"b":200},"yaxis":{"title":{"text":"Number of Users"},"gridcolor":"lightgray","tickformat":".0f","dtick":0.5,"range":[0,3.5999999999999996]},"xaxis":{"title":{"text":"Failure Rate Brackets"},"gridcolor":"lightgray","tickangle":0,"categoryorder":"array","categoryarray":["0-10%","10-20%","20-30%","30-40%","40-50%","50-60%","60-70%","70-80%","80-90%","90-100%"]},"hoverlabel":{"font":{"size":14,"family":"Arial"},"bgcolor":"white"},"height":700,"plot_bgcolor":"white","coloraxis":{"colorbar":{"title":{"text":"Failure Rate (%)"},"thicknessmode":"pixels","thickness":20,"lenmode":"pixels","len":300,"yanchor":"top","y":0.8,"xanchor":"right","x":1.05,"ticks":"outside"},"colorscale":[[0,"rgb(247, 252, 245)"],[0.1,"rgb(229, 245, 224)"],[0.2,"rgb(199, 233, 192)"],[0.3,"rgb(161, 217, 155)"],[0.4,"rgb(116, 196, 118)"],[0.5,"rgb(65, 171, 93)"],[0.6,"rgb(35, 139, 69)"],[0.7,"rgb(0, 109, 44)"],[0.8,"rgb(0, 90, 50)"],[1,"rgb(0, 68, 27)"]]}}};
+        Plotly.newPlot('chart', plotData.data, plotData.layout, {
+            displayModeBar: true,
+            displaylogo: false,
+            responsive: true
+        });
+    </script>
+</body>
+</html>

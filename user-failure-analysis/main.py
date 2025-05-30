@@ -13,7 +13,6 @@ from dotenv import load_dotenv
 from azure.storage.blob import BlobServiceClient
 import json
 import psycopg2
-from psycopg2 import sql
 
 from analyzer import create_visualization
 
@@ -115,93 +114,66 @@ def fetch_data(from_date: str, to_date: str) -> pd.DataFrame:
     Returns:
         DataFrame with user session data
     """
+    # Database connection string
+    db_url = os.getenv("DB_URL")
+
+    if not db_url:
+        error_msg = "Database connection string not configured. Please set DB_URL environment variable."
+        logger.error(error_msg)
+        raise ValueError(error_msg)
+
+    logger.info(f"Fetching data for period {from_date} to {to_date}")
+
+    # Format date range for query
+    start_datetime = f"{from_date} 00:00:00"
+    end_datetime = f"{to_date} 23:59:59"
+
+    # Query to get session data
+    query = """
+    SELECT
+        c.session_id,
+        u.name,
+        c.exotel_call_sid
+    FROM
+        public.calllog c
+    JOIN
+        public."user" u
+        ON c.user_id = u.user_id
+    WHERE
+        c.created_on >= %s::timestamp
+        AND c.created_on <= %s::timestamp
+    ORDER BY c.created_on DESC;
+    """
+
+    # Execute query
+    connection = None
     try:
-        # Database connection string
-        db_url = os.getenv(
-            "AZURE_POSTGRESQL_CONNECTIONSTRING",  # Azure provided connection string
-            os.getenv("DB_URL", "")  # Fallback to custom DB_URL
-        )
-        
-        if not db_url:
-            logger.error("No database connection string found in environment variables")
-            raise ValueError("Database connection string not configured")
-        
-        logger.info(f"Fetching data for period {from_date} to {to_date}")
-        
-        # Format date range for query
-        start_datetime = f"{from_date} 00:00:00"
-        end_datetime = f"{to_date} 23:59:59"
-        
-        # Query to get session data
-        query = """
-        SELECT
-            c.session_id,
-            u.name,
-            c.exotel_call_sid
-        FROM
-            public.calllog c
-        JOIN
-            public."user" u
-            ON c.user_id = u.user_id
-        WHERE
-            c.created_on >= %s::timestamp
-            AND c.created_on <= %s::timestamp
-        ORDER BY c.created_on DESC;
-        """
-        
-        # Execute query
-        connection = None
-        try:
-            logger.info("Connecting to database...")
-            connection = psycopg2.connect(db_url)
-            
-            # Set statement timeout (60 seconds)
-            with connection.cursor() as cursor:
-                cursor.execute("SET statement_timeout = 60000;")  # 60 seconds in ms
-            
-            logger.info("Executing query...")
-            df = pd.read_sql_query(query, connection, params=(start_datetime, end_datetime))
-            
-            logger.info(f"Query executed successfully. Retrieved {len(df)} rows")
-            
-            # Check if we need to generate test data for development/demo purposes
-            if df.empty:
-                logger.warning("Query returned no results for the specified date range")
-                
-                # Check if we should generate test data (for development/demo only)
-                generate_test_data = os.getenv("GENERATE_TEST_DATA", "").lower() == "true"
-                if generate_test_data:
-                    logger.warning("Generating test data for development/demo purposes")
-                    df = _generate_test_data()
-            
-            return df
-            
-        finally:
-            if connection:
-                connection.close()
-                logger.info("Database connection closed")
+        logger.info("Connecting to database...")
+        connection = psycopg2.connect(db_url)
+
+        # Set statement timeout (60 seconds)
+        with connection.cursor() as cursor:
+            cursor.execute("SET statement_timeout = 60000;")  # 60 seconds in ms
+
+        logger.info("Executing query...")
+        df = pd.read_sql_query(query, connection, params=(start_datetime, end_datetime))
+
+        if df.empty:
+            logger.warning("Query returned no results for the specified date range")
+        else:
+            logger.info(f"Successfully retrieved {len(df)} rows")
+
+        return df
 
     except Exception as e:
-        logger.error(f"Error fetching data: {str(e)}", exc_info=True)
-        raise
+        error_msg = f"Error fetching data from database: {str(e)}"
+        logger.error(error_msg, exc_info=True)
+        raise ValueError(error_msg) from e
 
-
-def _generate_test_data(num_records=100):
-    """Generate test data with some failures for development/demo purposes."""
-    test_data = []
-    for i in range(1, num_records + 1):
-        user = f"test_user_{i % 5 + 1}"
-        # Make some calls have null exotel_call_sid to simulate failures
-        call_sid = None if i % 3 == 0 else f"call_{i}"
-        test_data.append({
-            "session_id": i,
-            "name": user,
-            "exotel_call_sid": call_sid
-        })
-    
-    df = pd.DataFrame(test_data)
-    logger.info(f"Generated {len(df)} test records with {df['exotel_call_sid'].isnull().sum()} failures")
-    return df
+    finally:
+        if connection:
+            connection.close()
+            logger.info("Database connection closed")
 
 
 def process_data(df: pd.DataFrame, max_users: int = 15) -> pd.DataFrame:
@@ -226,10 +198,7 @@ def process_data(df: pd.DataFrame, max_users: int = 15) -> pd.DataFrame:
         # Group by user name
         user_stats = (
             df.groupby("name")
-            .agg({
-                "session_id": "count", 
-                "exotel_call_sid": lambda x: x.isnull().sum()
-            })
+            .agg({"session_id": "count", "exotel_call_sid": lambda x: x.isnull().sum()})
             .rename(
                 columns={
                     "session_id": "total_sessions",
@@ -242,10 +211,10 @@ def process_data(df: pd.DataFrame, max_users: int = 15) -> pd.DataFrame:
         user_stats["failure_rate"] = (
             user_stats["failed_sessions"] / user_stats["total_sessions"] * 100
         ).round(1)
-        
+
         # Reset index to make 'name' a column and rename to 'user' for consistency
         user_stats = user_stats.reset_index().rename(columns={"name": "user"})
-        
+
         # Sort by failure rate descending
         user_stats = user_stats.sort_values("failure_rate", ascending=False)
 
