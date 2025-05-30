@@ -43,7 +43,7 @@ def create_failure_rate_bins(df: pd.DataFrame) -> pd.DataFrame:
 def create_visualization(df: pd.DataFrame, output_dir: str, date_range: str) -> None:
     """
     Create an interactive visualization of user failure rates distribution.
-    Shows the distribution chart with hover details and metric cards at the bottom.
+    Shows the distribution chart with hover details.
 
     Args:
         df: DataFrame with user failure statistics
@@ -63,9 +63,7 @@ def create_visualization(df: pd.DataFrame, output_dir: str, date_range: str) -> 
         distribution = create_failure_rate_bins(df)
 
         # Calculate percentages
-        distribution["percentage"] = (distribution["count"] / total_users * 100).round(
-            2
-        )
+        distribution["percentage"] = (distribution["count"] / total_users * 100).round(2)
 
         # Add user details to each range for hover information
         distribution["user_details"] = ""
@@ -94,22 +92,17 @@ def create_visualization(df: pd.DataFrame, output_dir: str, date_range: str) -> 
 
         # Add distribution bars with color gradient based on failure rate
         for i, row in distribution.iterrows():
-            # Extract the range values for color mapping
             range_start = float(row["range"].split("-")[0].rstrip("%"))
-            # Scale the range (0-100) to the available colors
             color_idx = min(int((range_start / 100) * max_color_idx), max_color_idx)
 
             fig.add_trace(
                 go.Bar(
                     x=[row["range"]],
-                    y=[row["percentage"]],  # Use percentage instead of count
+                    y=[row["percentage"]],
                     name=row["range"],
-                    text=[
-                        f"{row['count']} ({row['percentage']}%)"
-                    ],  # Show both count and percentage
+                    text=[f"{row['count']} ({row['percentage']}%)"],
                     textposition="auto",
                     marker_color=colorscale[color_idx],
-                    # Add rounded corners to bars
                     marker_line_width=0,
                     hovertemplate=(
                         "<b>%{x}</b><br>"
@@ -127,26 +120,18 @@ def create_visualization(df: pd.DataFrame, output_dir: str, date_range: str) -> 
 
         # Update layout for the main chart
         fig.update_layout(
-            title={
-                "text": "User Failure Rate Distribution",
-                "y": 0.95,
-                "x": 0.5,
-                "xanchor": "center",
-                "yanchor": "top",
-                "font": {"size": 20, "color": "#333333"},
-            },
             yaxis_title="Percentage of Users",
             xaxis_title="Failure Rate Brackets",
             height=600,
-            margin=dict(t=100, l=50, r=50, b=50),
+            margin=dict(t=20, l=50, r=50, b=50),  # Reduced top margin since we removed the title
             template="plotly_white",
             plot_bgcolor="#f8f9fa",
             paper_bgcolor="#ffffff",
             yaxis=dict(
-                gridcolor="rgba(0,0,0,0)",  # Remove gridlines
-                tickformat=".1f",  # Display decimal numbers for percentages
-                ticksuffix="%",  # Add % suffix to Y-axis
-                dtick=5,  # Increment by 5%
+                gridcolor="rgba(0,0,0,0)",
+                tickformat=".1f",
+                ticksuffix="%",
+                dtick=5,
                 range=[
                     0,
                     max(distribution["percentage"].max() + 5, 20)
@@ -155,7 +140,7 @@ def create_visualization(df: pd.DataFrame, output_dir: str, date_range: str) -> 
                 ],
             ),
             xaxis=dict(
-                gridcolor="rgba(0,0,0,0)",  # Remove gridlines
+                gridcolor="rgba(0,0,0,0)",
                 tickangle=0,
                 categoryorder="array",
                 categoryarray=[f"{i}-{i + 10}%" for i in range(0, 100, 10)],
@@ -182,28 +167,6 @@ def create_visualization(df: pd.DataFrame, output_dir: str, date_range: str) -> 
             ),
         )
 
-        # Create HTML for metric cards - with tighter spacing
-        metric_cards_html = f"""
-        <div style="display: flex; justify-content: center; gap: 15px; margin-top: 10px; margin-bottom: 20px; flex-wrap: wrap; max-width: 900px; margin-left: auto; margin-right: auto;">
-            <div style="background-color: #ffffff; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); padding: 12px; min-width: 140px; text-align: center; flex: 1;">
-                <h3 style="font-size: 16px; color: #666; margin-bottom: 8px;">Total Users</h3>
-                <p style="font-size: 24px; font-weight: bold; color: #333; margin: 0;">{total_users}</p>
-            </div>
-            <div style="background-color: #ffffff; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); padding: 12px; min-width: 140px; text-align: center; flex: 1;">
-                <h3 style="font-size: 16px; color: #666; margin-bottom: 8px;">Total Sessions</h3>
-                <p style="font-size: 24px; font-weight: bold; color: #333; margin: 0;">{total_sessions}</p>
-            </div>
-            <div style="background-color: #ffffff; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); padding: 12px; min-width: 140px; text-align: center; flex: 1;">
-                <h3 style="font-size: 16px; color: #666; margin-bottom: 8px;">Failed Sessions</h3>
-                <p style="font-size: 24px; font-weight: bold; color: #333; margin: 0;">{total_failures}</p>
-            </div>
-            <div style="background-color: #ffffff; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); padding: 12px; min-width: 140px; text-align: center; flex: 1;">
-                <h3 style="font-size: 16px; color: #666; margin-bottom: 8px;">Overall Failure Rate</h3>
-                <p style="font-size: 24px; font-weight: bold; color: #333; margin: 0;">{overall_failure_rate:.2f}%</p>
-            </div>
-        </div>
-        """
-
         # Additional CSS for better styling
         css_styles = """
         <style>
@@ -217,17 +180,12 @@ def create_visualization(df: pd.DataFrame, output_dir: str, date_range: str) -> 
                 background-color: #ffffff;
                 border-radius: 8px;
                 box-shadow: 0 4px 8px rgba(0,0,0,0.05);
-                margin: 20px auto;
+                margin: 0 auto;
                 padding: 20px;
                 max-width: 1200px;
             }
             .js-plotly-plot {
                 margin: 0 auto;
-            }
-            h1 {
-                font-size: 28px;
-                font-weight: 600;
-                margin-bottom: 30px;
             }
         </style>
         """
@@ -235,22 +193,19 @@ def create_visualization(df: pd.DataFrame, output_dir: str, date_range: str) -> 
         # Save the visualization
         output_file = os.path.join(output_dir, f"user_failure_rates_{date_range}.html")
 
-        # Write HTML with the plot and metric cards
+        # Write HTML with just the plot
         with open(output_file, "w") as f:
             f.write(f"""
             <html>
             <head>
                 <meta charset="utf-8" />
                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <title>User Failure Rate Analysis</title>
                 <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
                 {css_styles}
             </head>
             <body>
                 <div style="padding: 20px;">
-                    <h1 style="color: #333; margin: 0 0 20px 0; padding: 0; text-align: center;">User Failure Rate Analysis</h1>
                     {fig.to_html(full_html=False, include_plotlyjs=False, config={"displayModeBar": True, "displaylogo": False, "responsive": True})}
-                    {metric_cards_html}
                 </div>
             </body>
             </html>
